@@ -314,3 +314,4 @@ class FaceAuthSystem:
 if __name__ == "__main__":
     system = FaceAuthSystem()
     system.run()
+
