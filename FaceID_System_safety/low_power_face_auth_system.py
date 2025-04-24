@@ -2,7 +2,7 @@ import cv2
 import time
 import numpy as np
 from utils.ai_models import face_app, THRESHOLD
-from utils.db_utils import load_db
+from utils.db_utils_safety import load_db
 from low_power_liveness_detector import LowPowerLivenessDetector
 from low_power_anti_spoofing_detector import LowPowerAntiSpoofingDetector
 import warnings
