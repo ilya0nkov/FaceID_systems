@@ -51,6 +51,7 @@ class FaceAuthSystem:
         self.failed_attempts = 0
         self.max_failed_attempts = 20
         self.lockout_time = 0
+        self.current_user = None  # Текущий авторизованный пользователь
 
         # Настройки окна
         self.window_width = 800
@@ -60,17 +61,10 @@ class FaceAuthSystem:
 
     def secure_embedding(self, embedding):
         """Преобразуем эмбеддинг в защищенную форму с HMAC"""
-        # Нормализуем эмбеддинг
         embedding = np.array(embedding)
         embedding = embedding / np.linalg.norm(embedding)
-
-        # Преобразуем в байты
         embedding_bytes = embedding.tobytes()
-
-        # Создаем HMAC с солью (убедитесь, что SECURITY_SALT - bytes)
         secured = hmac.new(SECURITY_SALT, embedding_bytes, hashlib.sha256).digest()
-
-        # Возвращаем как строку base64
         return base64.b64encode(secured).decode('ascii')
 
     def check_gui_support(self):
@@ -85,7 +79,7 @@ class FaceAuthSystem:
 
     def init_camera(self):
         """Инициализирует камеру"""
-        for i in [0, 1, 2]:  # Проверяем несколько индексов камер
+        for i in [0, 1, 2]:
             cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
             if cap.isOpened():
                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
@@ -125,8 +119,15 @@ class FaceAuthSystem:
         # Статус авторизации
         if current_time - self.last_successful_recognition_time < 60:
             time_left = 60 - (current_time - self.last_successful_recognition_time)
+
+            # Большой текст с именем пользователя
+            cv2.putText(resized_frame, f"Welcome {self.current_user}", (20, 50),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.5,
+                        self.COLORS["success"], 3)
+
+            # Статус авторизации
             status_text = f"Authorized ({max(0, int(time_left))}s remaining)"
-            cv2.putText(resized_frame, status_text, (20, 50),
+            cv2.putText(resized_frame, status_text, (20, 100),
                         cv2.FONT_HERSHEY_SIMPLEX, self.font_scale,
                         self.COLORS["success"], self.font_thickness)
         else:
@@ -138,11 +139,12 @@ class FaceAuthSystem:
                             cv2.FONT_HERSHEY_SIMPLEX, self.font_scale * 0.8, (255, 255, 0), self.font_thickness)
 
         # Техническая информация (для отладки)
-        cv2.putText(resized_frame, f"Stage: {self.current_stage}", (20, 130),
+        cv2.putText(resized_frame, f"Stage: {self.current_stage}", (20, resized_frame.shape[0] - 100),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 1)
-        cv2.putText(resized_frame, f"Fails: {self.failed_attempts}/{self.max_failed_attempts}", (20, 160),
+        cv2.putText(resized_frame, f"Fails: {self.failed_attempts}/{self.max_failed_attempts}",
+                    (20, resized_frame.shape[0] - 70),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 1)
-        cv2.putText(resized_frame, f"DB size: {len(self.db)}", (20, 190),
+        cv2.putText(resized_frame, f"DB size: {len(self.db)}", (20, resized_frame.shape[0] - 40),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 1)
         cv2.putText(resized_frame, f"FPS: {self.get_fps():.1f}", (20, 220),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 1)
@@ -252,7 +254,6 @@ class FaceAuthSystem:
         max_sim = 0
 
         for name, emb in self.db.items():
-            # Для отладки используем прямое сравнение эмбеддингов
             sim = np.dot(face.embedding / np.linalg.norm(face.embedding),
                          np.array(emb) / np.linalg.norm(emb))
             if sim > max_sim:
@@ -262,6 +263,7 @@ class FaceAuthSystem:
         if best_match and max_sim >= THRESHOLD:
             self.last_successful_recognition_time = time.time()
             self.failed_attempts = 0
+            self.current_user = best_match  # Сохраняем текущего пользователя
             self.show_message(
                 f"Welcome {best_match}!",
                 f"Score: {max_sim:.2f} (threshold: {THRESHOLD})",
@@ -269,6 +271,7 @@ class FaceAuthSystem:
             )
         else:
             self.failed_attempts += 1
+            self.current_user = None  # Сбрасываем текущего пользователя
             self.check_lockout()
             self.show_message(
                 "Authentication failed",

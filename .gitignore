@@ -6,4 +6,7 @@
 /venv/
 /common_data/
 face_db.json
+/utils/.face_db.key
+/utils/face_db.enc
+/utils/face_db.enc.bak
 face_db.json.bak
