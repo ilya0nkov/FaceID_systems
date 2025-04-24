@@ -1,0 +1,9 @@
+/insightface/
+/data/
+/unknown_faces/
+/FaceID_System/
+.idea/
+/venv/
+/common_data/
+face_db.json
+face_db.json.bak
